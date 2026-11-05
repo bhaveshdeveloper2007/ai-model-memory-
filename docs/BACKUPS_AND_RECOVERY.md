@@ -16,18 +16,20 @@ The recovery key is stored at `~/Documents/MemoryOS/storage/backups/recovery-key
 
 ## What is backed up
 
-An encrypted snapshot contains the Memory OS SQLite database, the append-only event journal, checkpoints and stored artifacts. It does not contain full source repositories, passwords, private keys, raw prompts, tool output, or private chain-of-thought; the current Codex adapter intentionally captures event metadata rather than conversation text. Snapshots are full recovery points. The backup branch retains prior snapshots.
+An encrypted snapshot contains the complete Memory OS SQLite database (including projects, sessions, tasks, decisions, errors, verification results and search indexes), the append-only event journal, the Memory OS backup configuration, checkpoints and stored artifacts. The backup refuses to prune local history if any journal entry cannot be ingested. It does not contain full source repositories, passwords, private keys, raw prompts, tool output, or private chain-of-thought; the current Codex adapter intentionally captures event metadata rather than conversation text. Snapshots are full recovery points. The backup branch retains prior snapshots.
 
 After a remote snapshot is uploaded and its commit is confirmed, Memory OS trims local activity-event rows older than 30 days and removes only the journal bytes included in that verified snapshot. Tasks, decisions, errors, memories and checkpoints stay local. If upload fails, local history is left in place.
 
 ## Restore after a crash
 
-Install the same Memory OS code, authenticate GitHub CLI, copy the recovery key to the path above, then run:
+On a new Mac, install Memory OS, authenticate GitHub CLI, copy the recovery key to the path above, configure the private repository, and restore before enabling the daily job:
 
 ```bash
+python3 ~/Documents/MemoryOS/scripts/backup.py configure OWNER/PRIVATE-REPOSITORY
 python3 ~/Documents/MemoryOS/scripts/backup.py restore-latest
+~/Documents/MemoryOS/scripts/enable-backups.sh OWNER/PRIVATE-REPOSITORY
 ```
 
-Close Codex and the dashboard before restoring. Restore downloads the encrypted snapshots, authenticates/decrypts them locally, merges historical events, keeps a local pre-restore database copy, and replaces the database only after an integrity check. No decrypted snapshot is written to the GitHub checkout.
+Close Codex and the dashboard before restoring. Restore downloads the encrypted snapshots, authenticates/decrypts them locally, merges all durable records from prior snapshots (using the newest version of updated tasks), keeps a local pre-restore database copy, and replaces the database only after an integrity check. No decrypted snapshot is written to the GitHub checkout.
 
 If automatic backup logs show an error, inspect `~/Documents/MemoryOS/logs/backup-error.log`. The job never uploads to a repository unless GitHub reports it as private.

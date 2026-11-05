@@ -187,6 +187,38 @@ def archive_db(archive):
         if f is None: raise RuntimeError('Snapshot has no database.')
         return f.read(),tar
 
+def merge_database(base,old):
+    # Merge all durable rows, not only events. A fresh installation can therefore
+    # recover tasks, decisions, errors and checkpoints from earlier snapshots.
+    tables=('projects','agents','workspaces','sessions','tasks','subtasks','artifacts','file_changes','terminal_commands','errors','error_resolutions','decisions','checkpoints','memories','memory_relationships','integrations','verification_results','activity_events')
+    newest_column={'projects':'updated_at','tasks':'updated_at','memories':'updated_at'}
+    for table in tables:
+        info=list(old.execute(f'PRAGMA table_info({table})'));columns=[r[1] for r in info]
+        if not columns: continue
+        primary=[r[1] for r in info if r[5]]
+        if not primary: continue
+        for row in old.execute(f'SELECT * FROM {table}'):
+            values=tuple(row);lookup=tuple(values[columns.index(k)] for k in primary)
+            where=' AND '.join(f'{k}=?' for k in primary)
+            present=base.execute(f'SELECT * FROM {table} WHERE {where}',lookup).fetchone()
+            if present is None:
+                cur=base.execute(f"INSERT OR IGNORE INTO {table} ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})",values)
+                if table=='activity_events' and cur.rowcount:
+                    item=dict(zip(columns,values));base.execute('INSERT INTO events_fts VALUES(?,?,?,?)',(item['id'],item['project_id'],item['event_type'],item['payload']))
+                continue
+            version=newest_column.get(table)
+            if version:
+                idx=columns.index(version);old_version=present[idx] or '';new_version=values[idx] or ''
+                if new_version>old_version:
+                    assignments=','.join(f'{k}=?' for k in columns if k not in primary)
+                    if assignments:base.execute(f'UPDATE {table} SET {assignments} WHERE {where}',tuple(values[i] for i,k in enumerate(columns) if k not in primary)+lookup)
+    # FTS tables are derived indexes. Copy any missing memory index rows after records.
+    tables_in_old={r[0] for r in old.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if 'memories_fts' in tables_in_old:
+        for row in old.execute('SELECT memory_id,project_id,content,category FROM memories_fts'):
+            if not base.execute('SELECT 1 FROM memories_fts WHERE memory_id=?',(row[0],)).fetchone():
+                base.execute('INSERT INTO memories_fts VALUES(?,?,?,?)',tuple(row))
+
 def restore_latest():
     cfg=config();slug=cfg['repository'];repo_private(slug);svc,keyfile=ensure_key(slug);local=checkout(slug)
     files=sorted((local/'snapshots').glob('*.mos'))
@@ -195,24 +227,11 @@ def restore_latest():
     latest_bytes=decrypt_file(files[-1],svc);latest_db,_=archive_db(latest_bytes)
     base_path=temp_root/'latest.sqlite3';base_path.write_bytes(latest_db);os.chmod(base_path,0o600)
     base=sqlite3.connect(base_path);base.row_factory=sqlite3.Row
-    # Merge historical activity from prior snapshots so local retention can stay small
-    # without losing the ability to restore older events.
+    # Merge every prior snapshot so local retention and a fresh install cannot drop data.
     for index,path in enumerate(files[:-1]):
         old_bytes=decrypt_file(path,svc);old_db,_=archive_db(old_bytes);old_path=temp_root/f'old-{index}.sqlite3';old_path.write_bytes(old_db);os.chmod(old_path,0o600)
         old=sqlite3.connect(old_path);old.row_factory=sqlite3.Row
-        for table in ('projects','agents','workspaces'):
-            try:
-                cols=[x[1] for x in old.execute(f'PRAGMA table_info({table})')]
-                for row in old.execute(f'SELECT * FROM {table}'):
-                    base.execute(f"INSERT OR IGNORE INTO {table} ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})",tuple(row))
-            except sqlite3.Error: pass
-        try:
-            for row in old.execute('SELECT * FROM activity_events'):
-                cols=[x[1] for x in old.execute('PRAGMA table_info(activity_events)')]
-                cur=base.execute(f"INSERT OR IGNORE INTO activity_events ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})",tuple(row))
-                if cur.rowcount:
-                    event=dict(zip(cols,tuple(row)));base.execute('INSERT INTO events_fts VALUES(?,?,?,?)',(event['id'],event['project_id'],event['event_type'],event['payload']))
-        except sqlite3.Error: pass
+        merge_database(base,old)
         old.close()
     base.commit()
     recovered_path=temp_root/'recovered.sqlite3';outdb=sqlite3.connect(recovered_path);base.backup(outdb);outdb.close();base.close()

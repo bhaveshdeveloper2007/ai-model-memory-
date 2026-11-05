@@ -55,8 +55,14 @@ class BackupArchiveTests(unittest.TestCase):
     def test_restore_merges_old_events_from_earlier_encrypted_snapshots(self):
         b.mem.event({'cwd':str(self.project),'event_type':'historic','occurred_at':'2020-01-01T00:00:00+00:00'})
         b.mem.event({'cwd':str(self.project),'event_type':'recent'})
+        task=b.mem.call('memory_create_task',{'cwd':str(self.project),'title':'restore important task'})
+        decision=b.mem.call('memory_record_decision',{'cwd':str(self.project),'summary':'restore decision'})
+        error=b.mem.call('memory_record_error',{'cwd':str(self.project),'summary':'restore error'})
         old_archive,_=b.snapshot_archive()
         b.prune_after_backup(b.mem.JOURNAL.read_bytes(),30)
+        # Emulate a new, empty local installation creating a snapshot before restore.
+        b.mem.DB=pathlib.Path(self.tmp.name)/'fresh.sqlite3';b.mem.JOURNAL=pathlib.Path(self.tmp.name)/'fresh-journal'/'events.jsonl';b.mem.JOURNAL_LOCK=pathlib.Path(self.tmp.name)/'fresh-journal'/'events.lock'
+        b.mem.connect().close()
         latest_archive,_=b.snapshot_archive()
         repo=self.tmp.name and pathlib.Path(self.tmp.name)/'backup-repo';(repo/'snapshots').mkdir(parents=True)
         old_file=repo/'snapshots'/'20200101T000000Z.mos';latest_file=repo/'snapshots'/'20200102T000000Z.mos'
@@ -71,6 +77,9 @@ class BackupArchiveTests(unittest.TestCase):
             with b.mem.connect() as db:
                 events={row[0] for row in db.execute('select event_type from activity_events')}
                 self.assertEqual(events,{'historic','recent'})
+                self.assertEqual(db.execute('select title from tasks where id=?',(task['task_id'],)).fetchone()[0],'restore important task')
+                self.assertEqual(db.execute('select summary from decisions where id=?',(decision['decision_id'],)).fetchone()[0],'restore decision')
+                self.assertEqual(db.execute('select summary from errors where id=?',(error['error_id'],)).fetchone()[0],'restore error')
             self.assertEqual(json.loads((pathlib.Path(self.tmp.name)/'config/backup.json').read_text())['repository'],'test/private')
         finally:
             for key,value in original.items():setattr(b,key,value)
