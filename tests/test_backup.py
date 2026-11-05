@@ -55,6 +55,8 @@ class BackupArchiveTests(unittest.TestCase):
     def test_restore_merges_old_events_from_earlier_encrypted_snapshots(self):
         b.mem.event({'cwd':str(self.project),'event_type':'historic','occurred_at':'2020-01-01T00:00:00+00:00'})
         b.mem.event({'cwd':str(self.project),'event_type':'recent'})
+        b.mem.event({'cwd':str(self.project),'event_type':'codex.SessionStart','session_id':'restore-session'})
+        b.mem.event({'cwd':str(self.project),'event_type':'codex.SessionEnd','session_id':'restore-session'})
         task=b.mem.call('memory_create_task',{'cwd':str(self.project),'title':'restore important task'})
         decision=b.mem.call('memory_record_decision',{'cwd':str(self.project),'summary':'restore decision'})
         error=b.mem.call('memory_record_error',{'cwd':str(self.project),'summary':'restore error'})
@@ -76,7 +78,8 @@ class BackupArchiveTests(unittest.TestCase):
             b.restore_latest()
             with b.mem.connect() as db:
                 events={row[0] for row in db.execute('select event_type from activity_events')}
-                self.assertEqual(events,{'historic','recent'})
+                self.assertEqual(events,{'historic','recent','codex.SessionStart','codex.SessionEnd'})
+                self.assertEqual(db.execute('select status from sessions').fetchone()[0],'ended')
                 self.assertEqual(db.execute('select title from tasks where id=?',(task['task_id'],)).fetchone()[0],'restore important task')
                 self.assertEqual(db.execute('select summary from decisions where id=?',(decision['decision_id'],)).fetchone()[0],'restore decision')
                 self.assertEqual(db.execute('select summary from errors where id=?',(error['error_id'],)).fetchone()[0],'restore error')

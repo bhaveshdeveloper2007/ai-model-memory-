@@ -191,7 +191,7 @@ def merge_database(base,old):
     # Merge all durable rows, not only events. A fresh installation can therefore
     # recover tasks, decisions, errors and checkpoints from earlier snapshots.
     tables=('projects','agents','workspaces','sessions','tasks','subtasks','artifacts','file_changes','terminal_commands','errors','error_resolutions','decisions','checkpoints','memories','memory_relationships','integrations','verification_results','activity_events')
-    newest_column={'projects':'updated_at','tasks':'updated_at','memories':'updated_at'}
+    newest_column={'projects':'updated_at','sessions':('ended_at','started_at'),'tasks':'updated_at','memories':'updated_at'}
     for table in tables:
         info=list(old.execute(f'PRAGMA table_info({table})'));columns=[r[1] for r in info]
         if not columns: continue
@@ -208,7 +208,9 @@ def merge_database(base,old):
                 continue
             version=newest_column.get(table)
             if version:
-                idx=columns.index(version);old_version=present[idx] or '';new_version=values[idx] or ''
+                versions=(version,) if isinstance(version,str) else version
+                old_version=tuple(present[columns.index(k)] or '' for k in versions)
+                new_version=tuple(values[columns.index(k)] or '' for k in versions)
                 if new_version>old_version:
                     assignments=','.join(f'{k}=?' for k in columns if k not in primary)
                     if assignments:base.execute(f'UPDATE {table} SET {assignments} WHERE {where}',tuple(values[i] for i,k in enumerate(columns) if k not in primary)+lookup)
