@@ -1,6 +1,7 @@
 .DS_Store
 storage/
 logs/
+/bin/
 __pycache__/
 *.py[cod]
 *.sqlite

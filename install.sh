@@ -6,24 +6,25 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 1
 fi
 command -v python3 >/dev/null || { echo "Install Python 3 first (python.org or Homebrew)." >&2; exit 1; }
+PYTHON_BIN="$(command -v python3)"
 SOURCE="$(cd "$(dirname "$0")" && pwd)"
 TARGET="$HOME/Documents/MemoryOS"
 mkdir -p "$TARGET"
 # Update program files while preserving all local memory data and logs.
-rsync -a --exclude='/.git/' --exclude='/storage/' --exclude='/logs/' --exclude='__pycache__/' --exclude='*.pyc' --exclude='*.sqlite3*' --exclude='*.jsonl' "$SOURCE/" "$TARGET/"
+rsync -a --exclude='/.git/' --exclude='/storage/' --exclude='/logs/' --exclude='/bin/' --exclude='__pycache__/' --exclude='*.pyc' --exclude='*.sqlite3*' --exclude='*.jsonl' "$SOURCE/" "$TARGET/"
 mkdir -p "$TARGET/storage/journal" "$TARGET/storage/database" "$TARGET/storage/artifacts" "$TARGET/storage/checkpoints" "$TARGET/storage/backups" "$TARGET/logs" "$HOME/.codex"
 chmod 700 "$TARGET/storage" "$TARGET/storage/journal" "$TARGET/storage/database" "$TARGET/storage/artifacts" "$TARGET/storage/checkpoints" "$TARGET/storage/backups" "$TARGET/logs"
 
-python3 - "$TARGET" <<'PY'
+"$PYTHON_BIN" - "$TARGET" "$PYTHON_BIN" <<'PY'
 from pathlib import Path
-import datetime, json, os, re, shutil, sys, tomllib
-root=Path(sys.argv[1]); home=Path.home(); codex=home/'.codex'; config=codex/'config.toml'; hooks=codex/'hooks.json'
+import datetime, json, os, re, shutil, sys
+root=Path(sys.argv[1]); python_bin=sys.argv[2]; home=Path.home(); codex=home/'.codex'; config=codex/'config.toml'; hooks=codex/'hooks.json'
 changes=[]
 if config.exists():
     text=config.read_text()
 else:
     text=''
-desired=f'[mcp_servers.memory_os]\ncommand = "/usr/bin/python3"\nargs = ["{root}/engine/memoryos.py", "mcp"]\n'
+desired=f'[mcp_servers.memory_os]\ncommand = "{python_bin}"\nargs = ["{root}/engine/memoryos.py", "mcp"]\n'
 match=re.search(r'(?ms)^\[mcp_servers\.memory_os\]\s*\n.*?(?=^\[|\Z)',text)
 if not match or match.group(0).strip()!=desired.strip():
     changes.append('config')
@@ -59,11 +60,13 @@ section='''\n\n## Memory OS\n\nAt project session start, call `memory_bootstrap`
 if '## Memory OS' not in prior: agents.write_text(prior.rstrip()+section)
 PY
 
-python3 "$TARGET/engine/memoryos.py" init
-python3 - "$HOME/.codex/config.toml" <<'PY'
-import pathlib,sys,tomllib
-p=pathlib.Path(sys.argv[1]);tomllib.loads(p.read_text());print('Codex config is valid.')
-PY
-python3 -m py_compile "$TARGET/engine/memoryos.py" "$TARGET/integrations/codex/hook.py"
+"$PYTHON_BIN" "$TARGET/engine/memoryos.py" init
+"$PYTHON_BIN" -m py_compile "$TARGET/engine/memoryos.py" "$TARGET/integrations/codex/hook.py"
+codex mcp list | grep -q 'memory_os' && echo "Codex MCP entry is present."
 printf '\nMemory OS files installed at %s\nRestart Codex to load the MCP tools.\n' "$TARGET"
 printf 'Dashboard: %s/scripts/dashboard.sh (then open http://127.0.0.1:8765)\n' "$TARGET"
+if [[ -n "${MEMORYOS_BACKUP_REPO:-}" ]]; then
+  "$TARGET/scripts/enable-backups.sh" "$MEMORYOS_BACKUP_REPO"
+else
+  echo "Encrypted GitHub backups are optional. Configure your own private repository with scripts/enable-backups.sh OWNER/REPOSITORY."
+fi

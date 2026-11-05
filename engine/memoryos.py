@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Memory OS local-first event and project memory engine (Python stdlib only)."""
 from __future__ import annotations
-import argparse, datetime as dt, hashlib, json, os, re, sqlite3, subprocess, sys, threading, uuid
+import argparse, datetime as dt, fcntl, hashlib, json, os, re, sqlite3, subprocess, sys, threading, uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 ROOT=Path(__file__).resolve().parents[1]
 DB=ROOT/'storage/database/memoryos.sqlite3'; JOURNAL=ROOT/'storage/journal/events.jsonl'
+JOURNAL_LOCK=ROOT/'storage/journal/events.lock'
 SCHEMA='''
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY, identity TEXT UNIQUE NOT NULL, name TEXT NOT NULL, root_path TEXT NOT NULL, remote_url TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
@@ -35,6 +36,11 @@ CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status)
 CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id, started_at DESC);
 '''
 def now(): return dt.datetime.now(dt.timezone.utc).isoformat()
+def journal_lock():
+    JOURNAL_LOCK.parent.mkdir(parents=True,exist_ok=True)
+    fd=os.open(JOURNAL_LOCK,os.O_CREAT|os.O_RDWR,0o600); fcntl.flock(fd,fcntl.LOCK_EX); return fd
+def journal_unlock(fd):
+    fcntl.flock(fd,fcntl.LOCK_UN); os.close(fd)
 class ClosingConnection(sqlite3.Connection):
     def __exit__(self, exc_type, exc, tb):
         try: return super().__exit__(exc_type, exc, tb)
@@ -72,9 +78,12 @@ def event(payload):
     ev={'id':eid,'project_id':proj['project_id'],'session_id':sid,'agent':agent,'event_type':typ,'occurred_at':ts,'payload':payload,'source':payload.get('source','hook')}
     JOURNAL.parent.mkdir(parents=True,exist_ok=True)
     line=json.dumps(ev,ensure_ascii=False)+'\n'
-    fd=os.open(JOURNAL,os.O_WRONLY|os.O_CREAT|os.O_APPEND,0o600)
-    with os.fdopen(fd,'a',encoding='utf-8') as f:f.write(line); f.flush(); os.fsync(f.fileno())
-    ingest(ev,dig)
+    lockfd=journal_lock()
+    try:
+        fd=os.open(JOURNAL,os.O_WRONLY|os.O_CREAT|os.O_APPEND,0o600)
+        with os.fdopen(fd,'a',encoding='utf-8') as f:f.write(line); f.flush(); os.fsync(f.fileno())
+        ingest(ev,dig)
+    finally: journal_unlock(lockfd)
     return {'event_id':eid,'project':proj,'persisted':True}
 def ingest(ev=None,digest=None):
     if ev:
