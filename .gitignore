@@ -1,0 +1,13 @@
+.DS_Store
+storage/
+logs/
+__pycache__/
+*.py[cod]
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.jsonl
+.env
+.env.*
