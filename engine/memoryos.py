@@ -149,27 +149,37 @@ def call(name,a):
             c.execute('INSERT OR IGNORE INTO agents VALUES(?,?,?)',('codex','Codex','codex'))
             sid=ensure_session(c,p['project_id'],'codex',a.get('session_id'),ts)
             c.execute('INSERT INTO tasks VALUES(?,?,?,?,?,?,?,?)',(tid,p['project_id'],sid,a['title'],a.get('status','PLANNED'),a.get('details'),ts,ts))
+        event({'cwd':p['root'],'event_type':'memory.task.created','agent':'codex','payload':{'task_id':tid,'status':a.get('status','PLANNED')}})
         return {'task_id':tid,'status':a.get('status','PLANNED')}
     if name=='memory_update_task':
-        with connect() as c:c.execute('UPDATE tasks SET status=?,updated_at=? WHERE id=?',(a['status'],now(),a['task_id']))
+        with connect() as c:
+            row=c.execute('SELECT p.root_path FROM tasks t JOIN projects p ON p.id=t.project_id WHERE t.id=?',(a['task_id'],)).fetchone()
+            if not row: raise ValueError('Task not found.')
+            c.execute('UPDATE tasks SET status=?,updated_at=? WHERE id=?',(a['status'],now(),a['task_id']))
+        event({'cwd':row['root_path'],'event_type':'memory.task.updated','agent':'codex','payload':{'task_id':a['task_id'],'status':a['status']}})
         return {'updated':True}
     if name=='memory_record_decision':
         p=project(a.get('cwd') or os.getcwd()); did=str(uuid.uuid4())
         with connect() as c:c.execute('INSERT INTO decisions VALUES(?,?,?,?,?,?)',(did,p['project_id'],a.get('session_id'),a['summary'],a.get('rationale'),now()))
+        event({'cwd':p['root'],'event_type':'memory.decision.recorded','agent':'codex','payload':{'decision_id':did}})
         return {'decision_id':did}
     if name=='memory_record_error':
         p=project(a.get('cwd') or os.getcwd()); eid=str(uuid.uuid4())
         with connect() as c:c.execute('INSERT INTO errors VALUES(?,?,?,?,?,?,?)',(eid,p['project_id'],a.get('session_id'),a['summary'],a.get('details'),'OPEN',now()))
+        event({'cwd':p['root'],'event_type':'memory.error.recorded','agent':'codex','payload':{'error_id':eid,'status':'OPEN'}})
         return {'error_id':eid,'status':'OPEN'}
     if name=='memory_verify_task':
         with connect() as c:
             c.execute('INSERT INTO verification_results VALUES(?,?,?,?,?,?,?)',(str(uuid.uuid4()),a['project_id'],a.get('task_id'),a.get('command'),a.get('exit_code'),a.get('evidence'),now()))
             if a.get('task_id') and a.get('exit_code')==0:c.execute("UPDATE tasks SET status='VERIFIED',updated_at=? WHERE id=?",(now(),a['task_id']))
+            project_row=c.execute('SELECT root_path FROM projects WHERE id=?',(a['project_id'],)).fetchone()
+        event({'cwd':project_row['root_path'] if project_row else os.getcwd(),'event_type':'memory.task.verified' if a.get('exit_code')==0 else 'memory.task.verification_recorded','agent':'codex','payload':{'task_id':a.get('task_id'),'exit_code':a.get('exit_code')}})
         return {'recorded':True,'verified':a.get('exit_code')==0}
     if name=='memory_save_checkpoint':
         p=project(a.get('cwd') or os.getcwd()); cid=str(uuid.uuid4()); state=json.dumps(a.get('state',{}),ensure_ascii=False)
         with connect() as c:c.execute('INSERT INTO checkpoints VALUES(?,?,?,?,?,?)',(cid,p['project_id'],a.get('session_id'),a['summary'],state,now()))
         cpfile=ROOT/'storage/checkpoints'/f'{cid}.json'; cpfile.parent.mkdir(parents=True,exist_ok=True); os.chmod(cpfile.parent,0o700); cpfile.write_text(state); os.chmod(cpfile,0o600)
+        event({'cwd':p['root'],'event_type':'memory.checkpoint.saved','agent':'codex','payload':{'checkpoint_id':cid,'summary':a['summary']}})
         return {'checkpoint_id':cid}
     if name=='memory_get_next_action':
         s=summary(a.get('cwd') or os.getcwd()); return {'incomplete_tasks':[t for t in s['tasks'] if t['status'] not in ('VERIFIED','REVERTED')],'suggestion':'Inspect the current Git diff, then continue the highest priority incomplete task.'}

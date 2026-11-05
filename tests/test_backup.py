@@ -15,7 +15,7 @@ class BackupArchiveTests(unittest.TestCase):
     def tearDown(self): self.tmp.cleanup()
     def test_snapshot_contains_database_and_flushed_event_journal(self):
         b.mem.event({'cwd':str(self.project),'event_type':'test.snapshot','summary':'safe metadata'})
-        archive,journal=b.snapshot_archive()
+        archive,journal,_,_=b.snapshot_archive()
         with tarfile.open(fileobj=io.BytesIO(archive),mode='r:gz') as tar:
             self.assertIn('memoryos.sqlite3',tar.getnames())
             self.assertIn('events.jsonl',tar.getnames())
@@ -26,7 +26,7 @@ class BackupArchiveTests(unittest.TestCase):
             self.assertIn(b'test.snapshot',journal)
             db.close()
     def test_snapshot_archive_is_decryptable_format_by_contract(self):
-        archive,_=b.snapshot_archive()
+        archive,_,_,_=b.snapshot_archive()
         self.assertGreater(len(archive),0)
         with tarfile.open(fileobj=io.BytesIO(archive),mode='r:gz') as tar:
             self.assertTrue(any(x.name=='memoryos.sqlite3' for x in tar.getmembers()))
@@ -38,6 +38,17 @@ class BackupArchiveTests(unittest.TestCase):
             b.snapshot_archive()
         self.assertTrue(b.mem.JOURNAL.exists())
         self.assertEqual(len(b.mem.JOURNAL.read_text().splitlines()),1)
+
+    def test_fingerprint_stabilizes_after_a_verified_journal_flush(self):
+        b.mem.event({'cwd':str(self.project),'event_type':'change.one'})
+        first_archive,first_journal,first_fingerprint,post_flush=b.snapshot_archive()
+        b.prune_after_backup(first_journal,30)
+        _,_,second_fingerprint,_=b.snapshot_archive()
+        self.assertNotEqual(first_fingerprint,post_flush)
+        self.assertEqual(post_flush,second_fingerprint)
+        b.mem.call('memory_create_task',{'cwd':str(self.project),'title':'new database state'})
+        _,_,third_fingerprint,_=b.snapshot_archive()
+        self.assertNotEqual(second_fingerprint,third_fingerprint)
 
     def test_local_retention_runs_only_after_upload_and_preserves_tasks(self):
         old={'cwd':str(self.project),'event_type':'old','occurred_at':'2020-01-01T00:00:00+00:00'}
@@ -60,12 +71,12 @@ class BackupArchiveTests(unittest.TestCase):
         task=b.mem.call('memory_create_task',{'cwd':str(self.project),'title':'restore important task'})
         decision=b.mem.call('memory_record_decision',{'cwd':str(self.project),'summary':'restore decision'})
         error=b.mem.call('memory_record_error',{'cwd':str(self.project),'summary':'restore error'})
-        old_archive,_=b.snapshot_archive()
+        old_archive,_,_,_=b.snapshot_archive()
         b.prune_after_backup(b.mem.JOURNAL.read_bytes(),30)
         # Emulate a new, empty local installation creating a snapshot before restore.
         b.mem.DB=pathlib.Path(self.tmp.name)/'fresh.sqlite3';b.mem.JOURNAL=pathlib.Path(self.tmp.name)/'fresh-journal'/'events.jsonl';b.mem.JOURNAL_LOCK=pathlib.Path(self.tmp.name)/'fresh-journal'/'events.lock'
         b.mem.connect().close()
-        latest_archive,_=b.snapshot_archive()
+        latest_archive,_,_,_=b.snapshot_archive()
         repo=self.tmp.name and pathlib.Path(self.tmp.name)/'backup-repo';(repo/'snapshots').mkdir(parents=True)
         old_file=repo/'snapshots'/'20200101T000000Z.mos';latest_file=repo/'snapshots'/'20200102T000000Z.mos'
         old_file.write_bytes(b'ciphertext-1');latest_file.write_bytes(b'ciphertext-2')
@@ -78,7 +89,7 @@ class BackupArchiveTests(unittest.TestCase):
             b.restore_latest()
             with b.mem.connect() as db:
                 events={row[0] for row in db.execute('select event_type from activity_events')}
-                self.assertEqual(events,{'historic','recent','codex.SessionStart','codex.SessionEnd'})
+                self.assertEqual(events,{'historic','recent','codex.SessionStart','codex.SessionEnd','memory.task.created','memory.decision.recorded','memory.error.recorded'})
                 self.assertEqual(db.execute('select status from sessions').fetchone()[0],'ended')
                 self.assertEqual(db.execute('select title from tasks where id=?',(task['task_id'],)).fetchone()[0],'restore important task')
                 self.assertEqual(db.execute('select summary from decisions where id=?',(decision['decision_id'],)).fetchone()[0],'restore decision')

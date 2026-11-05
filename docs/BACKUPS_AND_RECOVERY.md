@@ -10,7 +10,7 @@ Authenticate GitHub CLI (`gh auth login`), then run:
 ~/Documents/MemoryOS/scripts/enable-backups.sh OWNER/PRIVATE-REPOSITORY
 ```
 
-This verifies repository privacy and access, creates the first encrypted snapshot, then installs a user-level LaunchAgent to make a snapshot at login and every 24 hours. Backups are not configured by default in the public project installer. Each user must provide their own private repository so their data cannot flow to the project author's repository.
+This verifies repository privacy and access, creates the first encrypted snapshot, then installs a user-level LaunchAgent to make a snapshot at login and every 15 minutes. Unchanged data is skipped. Backups are not configured by default in the public project installer. Each user must provide their own private repository so their data cannot flow to the project author's repository.
 
 The recovery key is stored at `~/Documents/MemoryOS/storage/backups/recovery-key-OWNER_PRIVATE-REPOSITORY.txt` with owner-only permissions. **Copy this key to a separate safe place.** It is needed if the Mac's Keychain is lost. Never commit or upload the recovery key.
 
@@ -18,11 +18,11 @@ The recovery key is stored at `~/Documents/MemoryOS/storage/backups/recovery-key
 
 An encrypted snapshot contains the complete Memory OS SQLite database (including projects, sessions, tasks, decisions, errors, verification results and search indexes), the append-only event journal, the Memory OS backup configuration, checkpoints and stored artifacts. The backup refuses to prune local history if any journal entry cannot be ingested. It does not contain full source repositories, passwords, private keys, raw prompts, tool output, or private chain-of-thought; the current Codex adapter intentionally captures event metadata rather than conversation text. Snapshots are full recovery points. The backup branch retains prior snapshots.
 
-After a remote snapshot is uploaded and its commit is confirmed, Memory OS trims local activity-event rows older than 30 days and removes only the journal bytes included in that verified snapshot. Tasks, decisions, errors, memories and checkpoints stay local. If upload fails, local history is left in place.
+After a remote snapshot is uploaded and its commit is confirmed, Memory OS trims local activity-event rows older than 30 days and removes only the journal bytes included in that verified snapshot. Tasks, decisions, errors, memories and checkpoints are retained locally and included in encrypted snapshots. If upload fails, local history is left in place. While the Mac is online and the user session is active, new changes are normally uploaded within 15 minutes; unuploaded changes remain on the Mac and are retried at the next interval.
 
 ## Restore after a crash
 
-On a new Mac, install Memory OS, authenticate GitHub CLI, copy the recovery key to the path above, configure the private repository, and restore before enabling the daily job:
+On a new Mac, install Memory OS, authenticate GitHub CLI, copy the recovery key to the path above, configure the private repository, and restore before enabling the scheduled job:
 
 ```bash
 python3 ~/Documents/MemoryOS/scripts/backup.py configure OWNER/PRIVATE-REPOSITORY

@@ -16,7 +16,7 @@ mkdir -p "$AGENTS"
 from pathlib import Path
 import os,plistlib,sys
 root=Path(sys.argv[1]);home=Path(sys.argv[2]);python_bin=sys.argv[3];label='com.memoryos.backup'
-plist={'Label':label,'ProgramArguments':[python_bin,str(root/'scripts/backup.py'),'run'],'RunAtLoad':True,'StartInterval':86400,'EnvironmentVariables':{'PATH':'/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'},'StandardOutPath':str(root/'logs/backup.log'),'StandardErrorPath':str(root/'logs/backup-error.log'),'WorkingDirectory':str(root)}
+plist={'Label':label,'ProgramArguments':[python_bin,str(root/'scripts/backup.py'),'run'],'RunAtLoad':True,'StartInterval':900,'EnvironmentVariables':{'PATH':'/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'},'StandardOutPath':str(root/'logs/backup.log'),'StandardErrorPath':str(root/'logs/backup-error.log'),'WorkingDirectory':str(root)}
 p=home/'Library/LaunchAgents'/f'{label}.plist';p.write_bytes(plistlib.dumps(plist));os.chmod(p,0o600)
 PY
 "$PYTHON_BIN" - "$AGENTS/com.memoryos.backup.plist" <<'PY'

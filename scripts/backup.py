@@ -121,12 +121,18 @@ def snapshot_archive():
                 for p in folder.rglob('*'):
                     if p.is_file(): files.append((p.relative_to(ROOT).as_posix(),p.read_bytes()))
     finally: mem.journal_unlock(lock)
+    fingerprint=hashlib.sha256()
+    for name,data in sorted([('memoryos.sqlite3',database),('events.jsonl',journal),*files]):
+        fingerprint.update(name.encode());fingerprint.update(b'\0');fingerprint.update(len(data).to_bytes(8,'big'));fingerprint.update(data)
+    after_flush=hashlib.sha256()
+    for name,data in sorted([('memoryos.sqlite3',database),('events.jsonl',b''),*files]):
+        after_flush.update(name.encode());after_flush.update(b'\0');after_flush.update(len(data).to_bytes(8,'big'));after_flush.update(data)
     buf=io.BytesIO()
     with tarfile.open(fileobj=buf,mode='w:gz') as tar:
         entries=[('memoryos.sqlite3',database),('events.jsonl',journal),*files]
         for name,data in entries:
             info=tarfile.TarInfo(name);info.size=len(data);info.mode=0o600;info.mtime=int(time.time());tar.addfile(info,io.BytesIO(data))
-    return buf.getvalue(),journal
+    return buf.getvalue(),journal,fingerprint.hexdigest(),after_flush.hexdigest()
 
 def encrypt(archive,svc):
     r=run([str(CRYPTO),'encrypt',svc],input=archive)
@@ -134,8 +140,11 @@ def encrypt(archive,svc):
     return r.stdout
 
 def run_backup():
-    cfg=config();slug=cfg['repository'];repo_private(slug);svc,keyfile=ensure_key(slug);local=checkout(slug)
-    clear,journal=snapshot_archive();sealed=encrypt(clear,svc)
+    cfg=config();slug=cfg['repository'];repo_private(slug);clear,journal,fingerprint,after_flush=snapshot_archive()
+    state_file=ROOT/'storage/backups/last-snapshot.sha256'
+    if state_file.exists() and state_file.read_text().strip()==fingerprint:
+        print(json.dumps({'status':'unchanged','repository':slug,'local_retention_days':int(cfg.get('retention_days',30))}));return
+    svc,keyfile=ensure_key(slug);local=checkout(slug);sealed=encrypt(clear,svc)
     snapshots=local/'snapshots';snapshots.mkdir(exist_ok=True)
     stamp=dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%SZ');dest=snapshots/f'{stamp}.mos'
     seq=1
@@ -149,14 +158,16 @@ def run_backup():
     remote=run(['git','ls-remote','--heads',repo_url(slug),BRANCH]).stdout.decode().split()
     if not remote or remote[0]!=local_sha: raise RuntimeError('Remote verification failed; local memory was not pruned.')
     prune_after_backup(journal,int(cfg.get('retention_days',30)))
+    state_file.write_text(after_flush+'\n');os.chmod(state_file,0o600)
     print(json.dumps({'status':'uploaded_and_verified','repository':slug,'branch':BRANCH,'snapshot':dest.name,'sha256':digest,'remote_commit':local_sha,'local_retention_days':int(cfg.get('retention_days',30))}))
 
 def prune_after_backup(captured_journal,days):
     # Drop only old raw activity after the encrypted snapshot has been confirmed remotely.
     cutoff=(dt.datetime.now(dt.timezone.utc)-dt.timedelta(days=max(1,days))).isoformat()
+    pruned=0
     with mem.connect() as db:
         db.execute('DELETE FROM events_fts WHERE event_id IN (SELECT id FROM activity_events WHERE occurred_at < ?)',(cutoff,))
-        db.execute('DELETE FROM activity_events WHERE occurred_at < ?',(cutoff,))
+        pruned=db.execute('DELETE FROM activity_events WHERE occurred_at < ?',(cutoff,)).rowcount
         db.commit()
     # Remove only the journal prefix that was included in the verified snapshot.
     lock=mem.journal_lock()
@@ -172,9 +183,10 @@ def prune_after_backup(captured_journal,days):
     finally: mem.journal_unlock(lock)
     # Reclaim SQLite pages locally after retention cleanup; important tasks, memories,
     # decisions, errors, and checkpoints remain in the database.
-    db=sqlite3.connect(mem.DB,timeout=30)
-    try: db.execute('VACUUM')
-    finally: db.close()
+    if pruned:
+        db=sqlite3.connect(mem.DB,timeout=30)
+        try: db.execute('VACUUM')
+        finally: db.close()
 
 def decrypt_file(path,svc):
     data=path.read_bytes()
