@@ -1,4 +1,4 @@
-import importlib.util, io, pathlib, sqlite3, tempfile, tarfile, unittest
+import importlib.util, io, json, pathlib, sqlite3, tempfile, tarfile, unittest
 
 ROOT=pathlib.Path(__file__).parents[1]
 spec=importlib.util.spec_from_file_location('memoryos_backup',ROOT/'scripts/backup.py')
@@ -10,6 +10,8 @@ class BackupArchiveTests(unittest.TestCase):
         b.mem.DB=base/'database.sqlite3';b.mem.JOURNAL=base/'journal'/'events.jsonl';b.mem.JOURNAL_LOCK=base/'journal'/'events.lock'
         b.ROOT=base
         self.project=base/'sample-project';self.project.mkdir()
+        (base/'config').mkdir()
+        (base/'config/backup.json').write_text('{"repository":"test/private"}\n')
     def tearDown(self): self.tmp.cleanup()
     def test_snapshot_contains_database_and_flushed_event_journal(self):
         b.mem.event({'cwd':str(self.project),'event_type':'test.snapshot','summary':'safe metadata'})
@@ -17,6 +19,7 @@ class BackupArchiveTests(unittest.TestCase):
         with tarfile.open(fileobj=io.BytesIO(archive),mode='r:gz') as tar:
             self.assertIn('memoryos.sqlite3',tar.getnames())
             self.assertIn('events.jsonl',tar.getnames())
+            self.assertIn('config/backup.json',tar.getnames())
             dbpath=pathlib.Path(self.tmp.name)/'snapshot.sqlite3';dbpath.write_bytes(tar.extractfile('memoryos.sqlite3').read())
             db=sqlite3.connect(dbpath)
             self.assertEqual(db.execute('select count(*) from activity_events').fetchone()[0],1)
@@ -27,6 +30,14 @@ class BackupArchiveTests(unittest.TestCase):
         self.assertGreater(len(archive),0)
         with tarfile.open(fileobj=io.BytesIO(archive),mode='r:gz') as tar:
             self.assertTrue(any(x.name=='memoryos.sqlite3' for x in tar.getmembers()))
+
+    def test_snapshot_refuses_to_clear_an_uningestable_event(self):
+        b.mem.JOURNAL.parent.mkdir(parents=True,exist_ok=True)
+        b.mem.JOURNAL.write_text('{"not":"a valid memory event"}\n')
+        with self.assertRaisesRegex(RuntimeError,'Journal ingestion incomplete'):
+            b.snapshot_archive()
+        self.assertTrue(b.mem.JOURNAL.exists())
+        self.assertEqual(len(b.mem.JOURNAL.read_text().splitlines()),1)
 
     def test_local_retention_runs_only_after_upload_and_preserves_tasks(self):
         old={'cwd':str(self.project),'event_type':'old','occurred_at':'2020-01-01T00:00:00+00:00'}
@@ -60,6 +71,7 @@ class BackupArchiveTests(unittest.TestCase):
             with b.mem.connect() as db:
                 events={row[0] for row in db.execute('select event_type from activity_events')}
                 self.assertEqual(events,{'historic','recent'})
+            self.assertEqual(json.loads((pathlib.Path(self.tmp.name)/'config/backup.json').read_text())['repository'],'test/private')
         finally:
             for key,value in original.items():setattr(b,key,value)
 

@@ -15,6 +15,14 @@ class EngineTests(unittest.TestCase):
  def test_journal_ingest_and_dedupe(self):
   p=self.repo('repo');m.event({'cwd':str(p),'event_type':'observed','message':'works'});self.assertEqual(m.ingest(),1)
   with m.connect() as db:self.assertEqual(db.execute('select count(*) from activity_events').fetchone()[0],1)
+ def test_external_sessions_are_project_scoped_and_ingestable(self):
+  a,b=self.repo('a'),self.repo('b')
+  m.event({'cwd':str(a),'event_type':'codex.SessionStart','session_id':'shared-client-id'})
+  m.event({'cwd':str(b),'event_type':'codex.SessionStart','session_id':'shared-client-id'})
+  with m.connect() as db:
+   rows=db.execute('select project_id,session_id from activity_events').fetchall()
+   self.assertEqual(len(rows),2);self.assertNotEqual(rows[0]['session_id'],rows[1]['session_id'])
+   self.assertEqual(db.execute('select count(*) from sessions').fetchone()[0],2)
  def test_task_checkpoint_and_error(self):
   p=self.repo('repo');t=m.call('memory_create_task',{'cwd':str(p),'title':'verify'});e=m.call('memory_record_error',{'cwd':str(p),'summary':'failure'});cp=m.call('memory_save_checkpoint',{'cwd':str(p),'summary':'resume','state':{'next':'inspect'}})
   self.assertTrue(t['task_id']);self.assertEqual(e['status'],'OPEN');self.assertTrue(cp['checkpoint_id'])

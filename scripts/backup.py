@@ -96,9 +96,16 @@ def snapshot_archive():
     # Lock journal briefly so the database and captured journal represent a safe point.
     lock=mem.journal_lock()
     try:
-        mem.ingest()
         journal=mem.JOURNAL.read_bytes() if mem.JOURNAL.exists() else b''
+        expected=sum(1 for line in journal.splitlines() if line.strip())
+        processed=mem.ingest()
+        if processed!=expected:
+            raise RuntimeError(f'Journal ingestion incomplete ({processed}/{expected}); refusing to archive or prune local history.')
         temp_base=ROOT/'storage/backups';temp_base.mkdir(parents=True,exist_ok=True);os.chmod(temp_base,0o700)
+        # A hard crash can leave a plaintext SQLite staging copy; remove stale ones
+        # while holding the journal lock before creating the next private snapshot.
+        for stale in temp_base.glob('memoryos-snapshot-*'):
+            if stale.is_dir(): shutil.rmtree(stale,ignore_errors=True)
         tempdir=Path(tempfile.mkdtemp(prefix='memoryos-snapshot-',dir=temp_base));os.chmod(tempdir,0o700)
         try:
             source=mem.connect();target=sqlite3.connect(tempdir/'memoryos.sqlite3')
@@ -107,6 +114,8 @@ def snapshot_archive():
             database=(tempdir/'memoryos.sqlite3').read_bytes()
         finally: shutil.rmtree(tempdir,ignore_errors=True)
         files=[]
+        config_file=ROOT/'config/backup.json'
+        if config_file.exists(): files.append(('config/backup.json',config_file.read_bytes()))
         for folder in (ROOT/'storage/checkpoints',ROOT/'storage/artifacts'):
             if folder.exists():
                 for p in folder.rglob('*'):
@@ -231,6 +240,9 @@ def restore_latest():
     # Merge checkpoint/artifact files from the latest snapshot only; preserve existing copies.
     with tarfile.open(fileobj=io.BytesIO(latest_bytes),mode='r:gz') as tar:
         for member in tar.getmembers():
+            if member.name=='config/backup.json' and member.isfile():
+                destination=ROOT/'config/backup.json';destination.parent.mkdir(parents=True,exist_ok=True);f=tar.extractfile(member)
+                if f:destination.write_bytes(f.read());os.chmod(destination,0o600)
             if member.name.startswith(('storage/checkpoints/','storage/artifacts/')) and member.isfile():
                 destination=ROOT/member.name
                 if destination.resolve().is_relative_to(ROOT.resolve()):

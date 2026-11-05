@@ -85,11 +85,24 @@ def event(payload):
         ingest(ev,dig)
     finally: journal_unlock(lockfd)
     return {'event_id':eid,'project':proj,'persisted':True}
+def ensure_session(c,project_id,agent_id,external_session_id,occurred_at):
+    if external_session_id in (None,''): return None
+    external=str(external_session_id)
+    # Scope client session IDs to a project so a reused external ID cannot join projects.
+    sid=str(uuid.uuid5(uuid.NAMESPACE_URL,project_id+':'+external))
+    c.execute('INSERT OR IGNORE INTO sessions VALUES(?,?,?,?,?,?)',(sid,project_id,agent_id,occurred_at,None,'active'))
+    row=c.execute('SELECT project_id,agent_id FROM sessions WHERE id=?',(sid,)).fetchone()
+    if not row or row['project_id']!=project_id or row['agent_id']!=agent_id:
+        raise ValueError('Session identity conflicts with this project.')
+    return sid
 def ingest(ev=None,digest=None):
     if ev:
         with connect() as c:
-            c.execute('INSERT OR IGNORE INTO agents VALUES(?,?,?)',(ev['agent'],ev['agent'],ev['agent']))
-            cur=c.execute('INSERT OR IGNORE INTO activity_events VALUES(?,?,?,?,?,?,?,?,?)',(ev['id'],ev['project_id'],ev.get('session_id'),ev['agent'],ev['event_type'],ev['occurred_at'],json.dumps(ev['payload'],ensure_ascii=False),digest,ev.get('source','local')))
+            agent=str(ev.get('agent') or 'generic');c.execute('INSERT OR IGNORE INTO agents VALUES(?,?,?)',(agent,agent,agent))
+            session_id=ensure_session(c,ev['project_id'],agent,ev.get('session_id'),ev['occurred_at'])
+            if str(ev['event_type']).lower().endswith('sessionend') and session_id:
+                c.execute("UPDATE sessions SET ended_at=?,status='ended' WHERE id=?",(ev['occurred_at'],session_id))
+            cur=c.execute('INSERT OR IGNORE INTO activity_events VALUES(?,?,?,?,?,?,?,?,?)',(ev['id'],ev['project_id'],session_id,agent,ev['event_type'],ev['occurred_at'],json.dumps(ev['payload'],ensure_ascii=False),digest,ev.get('source','local')))
             if cur.rowcount: c.execute('INSERT INTO events_fts VALUES(?,?,?,?)',(ev['id'],ev['project_id'],ev['event_type'],json.dumps(ev['payload'],ensure_ascii=False)))
         return
     if not JOURNAL.exists():return 0
@@ -132,7 +145,10 @@ def call(name,a):
     if name=='memory_record_event':return event(a)
     if name=='memory_create_task':
         p=project(a.get('cwd') or os.getcwd()); ts=now(); tid=str(uuid.uuid4())
-        with connect() as c:c.execute('INSERT INTO tasks VALUES(?,?,?,?,?,?,?,?)',(tid,p['project_id'],a.get('session_id'),a['title'],a.get('status','PLANNED'),a.get('details'),ts,ts))
+        with connect() as c:
+            c.execute('INSERT OR IGNORE INTO agents VALUES(?,?,?)',('codex','Codex','codex'))
+            sid=ensure_session(c,p['project_id'],'codex',a.get('session_id'),ts)
+            c.execute('INSERT INTO tasks VALUES(?,?,?,?,?,?,?,?)',(tid,p['project_id'],sid,a['title'],a.get('status','PLANNED'),a.get('details'),ts,ts))
         return {'task_id':tid,'status':a.get('status','PLANNED')}
     if name=='memory_update_task':
         with connect() as c:c.execute('UPDATE tasks SET status=?,updated_at=? WHERE id=?',(a['status'],now(),a['task_id']))
