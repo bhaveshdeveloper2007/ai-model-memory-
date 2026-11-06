@@ -30,6 +30,12 @@ The installer verifies the destination is private. Backups go to its separate `m
 
 If you already have the repository open in Codex, you can simply ask Codex: **“Set up Memory OS from this repository by running `./install.sh`, then check that the database initializes and the Codex MCP server is configured.”**
 
+## Intelligence (v0.4)
+
+- 61 MCP tools: project health and context projections, evidence-gated memory verification, duplicate detection and safe consolidation, session summaries with auto-checkpoints, interrupted-session recovery, task priorities and dependencies, agent history.
+- Optional Cloudflare R2 off-site backup: fully implemented (stdlib SigV4 adapter, client-side AES-256-GCM envelope, additive sync with dry-run, retry and conflict preservation). Disabled by default; see `docs/CLOUDFLARE_R2_SETUP.md` — you only add credentials and activate.
+- Health and test commands: `python3 ~/Documents/MemoryOS/engine/memoryos.py doctor` and `python3 ~/Documents/MemoryOS/engine/memoryos.py test`.
+
 ## Use it
 
 Open any project in Codex. Memory OS detects its Git root and remote (or the local path for a non-Git folder). Ask Codex to resume a project, save a decision, record a task, or save a checkpoint; the global Codex instructions also tell it to bootstrap project context when MCP tools are available.

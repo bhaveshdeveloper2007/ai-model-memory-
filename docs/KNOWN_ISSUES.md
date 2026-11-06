@@ -1,10 +1,9 @@
-# Known issues
+# Known issues (v0.4)
 
-- The installed runtime still uses SQLite as its authoritative store. The new PostgreSQL backend now migrates and passes API integration tests, but SQLite remains live until the migration path (record-count and relationship parity) is implemented.
-- **Backup uploads are blocked: the configured backup repository `bhaveshdeveloper2007/ai-model-database` is PUBLIC (checked 2026-11-07).** Existing snapshots are AES-256-GCM encrypted, so ciphertext exposure does not disclose memory contents, and no new uploads were made. Restore private visibility (requires your GitHub account; not done automatically) and re-run `scripts/enable-backups.sh OWNER/REPOSITORY` to resume backups.
-- Claude Code is not installed on this machine, so its integration is provided (`integrations/claude-code/configure.sh`) but runtime verification is pending.
-- Full Xcode is not installed on this machine (Xcode 27.2 was removed; package receipts remain). The SwiftUI menu-bar companion and XCTest require an Xcode-enabled environment.
-- Semantic retrieval requires a local embedding provider. pgvector 0.8.7 is now installed and loads on PostgreSQL 15; embeddings still require a running local model provider and remain optional.
-- The initial local API token model is single-user. Per-agent credentials and granular permissions remain a later security task.
-- The live SQLite edition's backup job refuses public repositories by design and therefore pauses (rather than uploading) while the backup repository is public.
-- Ollama is installed but not running; no local embedding model was downloaded. Full-text search is the active retrieval path.
+- Backup uploads remain **BLOCKED**: the configured backup repository `bhaveshdeveloper2007/ai-model-database` is PUBLIC (re-checked 2026-11-07). Existing snapshots stay encrypted; make the repository private to resume.
+- Claude Code CLI is not installed (user authorization pending). Its MCP registration is prepared via `integrations/claude-code/configure.sh`; the true Codex↔Claude cross-agent test remains unverified until then. The multi-process shared-memory test (three independent MCP server processes) passes.
+- Full Xcode is absent from this machine: the SwiftUI menu-bar companion (`apps/macos`) cannot be compiled or XCTest-run.
+- The OpenAI account hit its usage limit (resets 2026-12-06), so a live `codex exec` tool-call session could not complete; registration, hooks, and the MCP protocol surface are verified by other means.
+- SQLite → PostgreSQL cutover remains gated: the backend passes migration + 19 API tests in isolation, but the SQLite data migration path is not implemented.
+- R2 live connectivity is BLOCKED awaiting user credentials; all software paths are tested with mocks (see CLOUDFLARE_R2_SETUP.md).
+- The R2 encryption envelope depends on the macOS Keychain helper (`bin/memoryos-crypto`); on non-macOS hosts R2 sync reports the helper as unavailable instead of storing plaintext.

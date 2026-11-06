@@ -1,6 +1,6 @@
 {
   "project": "MEMORY_OS",
-  "current_phase": "foundation_verified_and_extended",
+  "current_phase": "v0.4_intelligent_infrastructure",
   "completed_tasks": [
     "Inspect repository, installed runtime, databases, integrations, backups, and tests",
     "Preserve installed SQLite data: integrity ok before and after; additive in-place migration only; local safety copy taken",
@@ -18,19 +18,27 @@
     "Fix Codex CLI discovery: the CLI was genuinely absent (npm/bun globals empty; earlier npx output was a one-off fetch); installed @openai/codex 0.167.0 via npm in the user-writable Homebrew prefix; codex mcp list now shows memory_os enabled with absolute paths; all pre-existing MCP servers preserved",
     "Catch and fix a live-database migration gap found by real MCP usage: installed databases carried the pre-0.3.0 four-column memories_fts index, which broke remember; added an FTS rebuild migration plus regression test (33/33)",
     "Verify the shared memory flow on the live engine through three independent MCP server processes: agent A wrote, independent agent B read the same record, B updated it to v2, and a post-restart process retrieved the verified update; temporary test data cleaned",
-    "Verify codex mcp get registration detail and run a live codex exec agent session (hooks fired; blocked only by the OpenAI account usage limit that resets 2026-12-06)"
+    "Verify codex mcp get registration detail and run a live codex exec agent session (hooks fired; blocked only by the OpenAI account usage limit that resets 2026-12-06)",
+    "v0.4 memory intelligence: canonical categories with legacy aliasing, explainable importance scoring, read-only duplicate detection (exact+near), safe consolidation preserving all IDs, evidence-gated verify_memory",
+    "v0.4 project intelligence: get_project_health with staleness, build_project_context budgeted atomic projections",
+    "v0.4 session intelligence: session summaries, auto-checkpoint on end, interrupted-session recovery",
+    "v0.4 task intelligence: canonical statuses, priorities, cycle-safe dependencies, evidence-gated complete_task",
+    "MCP expanded to 61 tools (15 new: health/context/verify/duplicates/consolidate/complete/dependencies/session-summary/recovery/agent-history/storage/sync)",
+    "Cloudflare R2 prepared completely: StorageAdapter interface, stdlib SigV4 R2 adapter verified against an independent reference, LocalDirectory mock adapter, versioned client-side AES-256-GCM envelope via the existing Keychain helper, additive sync engine with dry-run/retry/conflict-preservation, storage CLI commands, .env.example",
+    "CLI: memoryos doctor (read-only, human+JSON), memoryos test groups, memoryos storage status/test/verify/sync/list/download",
+    "Dashboard: storage/backup/R2/sync section with integrity and recommendations",
+    "Concurrency hardening: migration serialized by advisory lock with tolerant re-checks, project registration made race-safe \u2014 found by the new 8-process concurrency test",
+    "Live-database FTS migration gap from v0.3.0 covered by regression test"
   ],
   "pending_tasks": [
-    "Build and run the SwiftUI companion with full Xcode and execute XCTest",
-    "Implement and verify encrypted backup synchronization and restore for the PostgreSQL backend",
-    "Create the SQLite-to-PostgreSQL data migration path (record-count and relationship parity) before any cutover",
-    "Run codex mcp list from a user terminal session to confirm CLI-visible registration",
-    "Run a real Codex end-to-end tool-call session after the usage limit resets (2026-12-06) or on a plan with capacity"
+    "Run a real Codex end-to-end tool-call session after the OpenAI usage limit resets (2026-12-06)",
+    "Live R2 sync once the user provides Cloudflare credentials and makes the backup repository private"
   ],
   "blocked_tasks": [
-    "Claude Code CLI is not installed; user authorization was requested for the npm install but not granted this session, so its MCP registration and the true Codex-to-Claude cross-agent test remain pending (exact command: npm install -g @anthropic-ai/claude-code, then bash integrations/claude-code/configure.sh)",
-    "Backup uploads remain blocked: repository bhaveshdeveloper2007/ai-model-database is still PUBLIC (re-checked 2026-11-07); no uploads made and visibility not changed automatically",
-    "New backups cannot be tested end-to-end until the repository is private"
+    "Claude Code CLI install (user authorization pending) and the true Codex\u2194Claude cross-agent test",
+    "Backup uploads while the backup repository is PUBLIC",
+    "SwiftUI companion compile/XCTest while full Xcode is absent",
+    "Live R2 connectivity without user credentials"
   ],
   "verified_tests": [
     "32/32 SQLite engine tests (legacy regressions + 22 new: redaction, idempotency, versioning, supersede, isolation, session identity, solutions, activity, additive migration, dashboard endpoints, MCP round-trip, legacy tool names)",
@@ -39,7 +47,8 @@
     "Restart persistence: memory content and metadata identical across process restart",
     "Encrypted snapshot integrity: latest snapshot decrypts with Keychain key, tar valid, inner DB integrity ok (local verification only, no upload)",
     "Live install: engine 0.3.0, 46 MCP tools, all required tool surface present, DB integrity ok with 8 projects and 7317 events preserved",
-    "Dashboard: /health, /progress, HTML served on loopback"
+    "Dashboard: /health, /progress, HTML served on loopback",
+    "81/81 SQLite-engine-side tests (33 legacy + 48 new across lifecycle/storage/security suites), including 8-process concurrent MCP writes, FTS migration regression, R2 envelope tamper rejection, and dry-run isolation"
   ],
   "outstanding_defects": [
     "Backup repository visibility is PUBLIC; existing snapshots are encrypted but the user must restore private visibility before uploads resume",

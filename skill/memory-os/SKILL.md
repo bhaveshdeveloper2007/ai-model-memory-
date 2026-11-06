@@ -1,7 +1,7 @@
 ---
 name: memory-os
 description: Use the local Memory OS shared memory system correctly — find the current project, load its context, save durable memories without duplicates, record decisions, tasks, errors and solutions, and recover after interruption.
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Memory OS skill
@@ -93,6 +93,18 @@ state; the working tree is the source of truth for code.
 Memory OS MCP failures are never a reason to stop working. Continue the
 task normally and report that memory tools were unavailable. Do not store
 memory through any channel other than the MCP tools.
+
+
+## 11. v0.4 intelligence capabilities
+
+- **Categories are canonical**: use `GLOBAL_USER_PREFERENCE`, `PROJECT_CONTEXT`, `ARCHITECTURE`, `DECISION`, `TASK`, `PROGRESS`, `ERROR`, `VERIFIED_SOLUTION`, `ENVIRONMENT`, `DEPENDENCY`, `RESEARCH`, `SESSION_SUMMARY`, `REFERENCE`, `CHECKPOINT`. Legacy lowercase names still work and are mapped automatically.
+- **Importance is explainable**: scores combine category base, verification, explicit importance, confidence, and reference count. Scores rank retrieval; they never delete anything.
+- **Duplicates**: call `find_duplicate_memories` to review exact and near-duplicate candidates (read-only). Merge safely with `consolidate_memories` (primary gains a version, secondary is superseded and linked — every original ID stays retrievable).
+- **Verification needs evidence**: `verify_memory` refuses to mark anything verified without a test run, command result, reproduction check, or human confirmation.
+- **Tasks**: use `TODO`, `IN_PROGRESS`, `BLOCKED`, `COMPLETED`, `CANCELLED`. `complete_task` requires evidence. Declare ordering with `add_task_dependency` (cycle-safe).
+- **Project health**: `get_project_health` reports staleness, incomplete work, open errors, and unverified claims. `build_project_context` writes ranked, budgeted context projections for the project.
+- **Interrupted sessions**: `recover_interrupted_sessions` marks stale active sessions as interrupted so the next agent treats them as incomplete, not done.
+- **Storage**: `get_storage_status`, `get_backup_status`, `get_sync_status`, and `verify_storage_integrity` report local usage, backup policy, and optional Cloudflare R2 readiness. `request_sync` uploads encrypted objects only when R2 is configured; dry-run first. R2 is optional — local memory never depends on it.
 
 ## 10. Quick reference
 

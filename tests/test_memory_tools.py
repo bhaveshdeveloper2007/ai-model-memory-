@@ -54,7 +54,7 @@ class EngineTestCase(unittest.TestCase):
         self.assertTrue(second['deduplicated'])
         self.assertEqual(first['memory']['id'], second['memory']['id'])
         with m.connect() as db:
-            count = db.execute("SELECT count(*) FROM memories WHERE category='project_context' AND project_id=?", (first['memory']['project_id'],)).fetchone()[0]
+            count = db.execute("SELECT count(*) FROM memories WHERE category IN ('project_context','PROJECT_CONTEXT') AND project_id=?", (first['memory']['project_id'],)).fetchone()[0]
         self.assertEqual(count, 1)
 
     def test_update_memory_versions_previous_state(self):

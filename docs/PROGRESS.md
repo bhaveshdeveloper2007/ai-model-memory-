@@ -42,3 +42,11 @@ Machine-readable status: `progress.json`.
 - **Live usage caught a migration gap**: installed databases carry the pre-0.3.0 four-column `memories_fts` index, so `remember` failed against the real database even though fresh-database tests passed. Fixed with an in-place FTS5 rebuild migration + regression test; suite now 33/33.
 - Shared-memory flow verified on the live engine across three independent MCP server processes (write → independent read → versioned update → post-restart retrieve); temporary test data archived/removed from the live database afterwards; final integrity ok with the user's 8 projects and full history intact.
 - Claude Code remains uninstalled pending user authorization; backup repository remains PUBLIC → no uploads.
+
+## 2026-11-07 (3) — v0.4 intelligent infrastructure
+
+- Engine 0.4: canonical categories (legacy aliasing), explainable importance scoring, read-only duplicate detection, safe consolidation, evidence-gated verification, project health + budgeted context projections, session intelligence (summaries, auto-checkpoints, interrupted-session recovery), task priorities/dependencies/evidence-gated completion. MCP surface: 61 tools.
+- Cloudflare R2 fully prepared (no credentials used): stdlib SigV4 adapter, versioned client-side AES-256-GCM envelope via the existing Keychain helper, additive-only sync engine (dry-run, exponential-backoff retries, conflict preservation), storage CLI. Live connectivity BLOCKED pending user credentials.
+- CLI: `memoryos doctor` (read-only), `memoryos test --unit|--integration|--mcp|--storage|--r2|--regression`, `memoryos storage status|test|verify|sync|list|download`. Dashboard gained storage/backup/R2 visibility.
+- Testing found and fixed two real concurrency bugs (project-registration identity race; concurrent first-boot schema migration race) — 8-process concurrent MCP writes now deterministic; suite 81/81.
+- Blocked (honest): Claude Code install (authorization pending), backup uploads (repo PUBLIC), SwiftUI build (no Xcode), live R2 (no credentials), Codex end-to-end (usage limit until 2026-12-06).
