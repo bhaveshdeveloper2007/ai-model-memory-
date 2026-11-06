@@ -9,7 +9,7 @@
     "Implement project/session APIs, redacted idempotent events, tasks and dependency checks, decisions, errors, checkpoints, advisory leases, memory CRUD, and full-text search",
     "Implement transactional Markdown outbox projection and local-only Ollama embedding adapter",
     "Implement stdio MCP adapter, browser dashboard source, and SwiftUI menu-bar companion source",
-    "Run Python compilation, SQLAlchemy PostgreSQL DDL compilation, shell syntax checks, Swift syntax parsing, git diff whitespace checks, and 11 passing non-database unit tests"
+    "Run Python compilation, SQLAlchemy PostgreSQL DDL compilation, shell syntax checks, Swift syntax parsing, git diff whitespace checks, 11 new backend unit tests, and 10 existing SQLite/backup regression tests"
   ],
   "pending_tasks": [
     "Apply the Alembic schema and run PostgreSQL API integration tests after resolving the PostgreSQL 15 pgvector compatibility issue",
@@ -25,6 +25,8 @@
   ],
   "verified_tests": [
     "11 non-database pytest tests passed",
+    "10 existing SQLite engine and backup regression tests passed in isolated temporary directories",
+    "21 Python tests passed across the new backend and existing local runtime",
     "Python compileall passed for backend, scripts, and MCP server",
     "Shell syntax checks passed for all scripts",
     "Swift source parsed successfully with swiftc",

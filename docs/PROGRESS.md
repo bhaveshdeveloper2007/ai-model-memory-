@@ -20,7 +20,7 @@ Machine-readable phase status is maintained in `progress.json` at the repository
 - [x] Python package, typed API models, project/agent authentication, project-scoped routes, task dependencies, advisory leases, event idempotency, redaction, memory search, and outbox worker source are implemented.
 - [x] Alembic initial migration is generated; the schema compiles to PostgreSQL DDL.
 - [x] MCP stdio adapter, optional local embedding provider, browser dashboard source, and SwiftUI menu-bar source are present.
-- [x] 11 isolated unit tests, Python compile, shell syntax, Swift parsing, SQLAlchemy metadata compilation, and `git diff --check` passed.
+- [x] 11 new backend unit tests and 10 existing SQLite/backup regression tests passed; Python compile, shell syntax, Swift parsing, SQLAlchemy metadata compilation, and `git diff --check` passed.
 - [ ] PostgreSQL migration and API integration tests (blocked by missing PostgreSQL 15-compatible pgvector extension; see TEST_RESULTS.md).
 - [ ] Full SwiftUI build and XCTest (requires full Xcode).
 

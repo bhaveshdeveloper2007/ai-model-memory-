@@ -21,7 +21,8 @@ Only actual command output is recorded here. Do not treat a design review or an 
 ## Phase 1 and vertical slice
 
 - Python 3.14 `compileall` passed for backend source, migration source, scripts, tests, and MCP adapter.
-- 11 non-database unit tests passed across project authorization helpers, secret redaction, local embedding adapter behavior, vault file projection permissions, MCP handshake/tool catalog, and loopback URL enforcement.
+- 11 new non-database backend unit tests passed across project authorization helpers, secret redaction, local embedding adapter behavior, vault file projection permissions, MCP handshake/tool catalog, and loopback URL enforcement.
+- 10 existing SQLite engine and backup regression tests passed using isolated temporary directories, including snapshot archiving, journal safety, retention, and restore merging. No installed database was read or modified. Combined Python checks: 21 passed.
 - `create_app()` imported successfully and registered 32 FastAPI routes.
 - SQLAlchemy compiled all 17 declared PostgreSQL tables into 28 DDL statements using a PostgreSQL mock engine; the schema includes all required entities.
 - Shell syntax checks passed for setup, API, workers, MCP, test, dashboard, and macOS app scripts.
