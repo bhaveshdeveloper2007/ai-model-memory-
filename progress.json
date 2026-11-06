@@ -1,44 +1,44 @@
 {
   "project": "MEMORY_OS",
-  "current_phase": "foundation_and_vertical_slice",
+  "current_phase": "foundation_verified_and_extended",
   "completed_tasks": [
-    "Inspect local macOS, Apple Silicon, Swift, Homebrew, Python, PostgreSQL, pgvector, listeners, RAM, disk, and existing Memory OS installation",
-    "Record preservation boundary for installed SQLite data and encrypted backups",
-    "Choose isolated PostgreSQL backend and transactional Markdown projection design",
-    "Implement FastAPI/SQLAlchemy backend models, versioned Alembic schema, localhost token authentication, and project-scoped agent grants",
-    "Implement project/session APIs, redacted idempotent events, tasks and dependency checks, decisions, errors, checkpoints, advisory leases, memory CRUD, and full-text search",
-    "Implement transactional Markdown outbox projection and local-only Ollama embedding adapter",
-    "Implement stdio MCP adapter, browser dashboard source, and SwiftUI menu-bar companion source",
-    "Run Python compilation, SQLAlchemy PostgreSQL DDL compilation, shell syntax checks, Swift syntax parsing, git diff whitespace checks, 11 new backend unit tests, and 10 existing SQLite/backup regression tests"
+    "Inspect repository, installed runtime, databases, integrations, backups, and tests",
+    "Preserve installed SQLite data: integrity ok before and after; additive in-place migration only; local safety copy taken",
+    "Extend the shared SQLite engine to the full tool surface: remember/get/update/link/archive/history/list, canonical task/decision/error/solution tools, sessions with start/end/resume, checkpoints with restore, agent activity, project registration/switching/context",
+    "Memory versioning with replacement audit trail, verification statuses (proposed/observed/verified/superseded/rejected/archived), and idempotent capture per project+category+content digest",
+    "Secret redaction (API keys, GitHub/AWS/Slack tokens, private key blocks, credential assignments, bearer tokens) applied to memories, tasks, decisions, errors, solutions, and event payloads",
+    "Extend the loopback dashboard: project selector, health, progress, memory search, tasks, decisions, sessions, agent activity",
+    "Fix the installer hook-deduplication bug and remove 35 accumulated duplicate hook groups from the live Codex configuration (backup kept)",
+    "Make the PostgreSQL migration vector-optional and fix the availability probe column",
+    "Apply the Alembic schema to an isolated PostgreSQL 15 database with pgvector 0.8.7 (previous pgvector 0.8.6 blocker resolved by the newer extension build)",
+    "Fix a real lease-coordination bug found by first-ever API integration run: psycopg3 rowcount=-1 for INSERT..ON CONFLICT DO UPDATE replaced with deterministic RETURNING checks in acquire/heartbeat/release",
+    "Fix DELETE-with-body usage in the lease API test (httpx does not support bodies on delete())",
+    "Add integrations/claude-code/configure.sh and universal skill skill/memory-os/SKILL.md",
+    "Run combined verification: 32/32 SQLite engine tests, 19/19 backend tests, restart persistence, encrypted snapshot integrity, live MCP round-trip (46 tools), live dashboard health"
   ],
   "pending_tasks": [
-    "Apply the Alembic schema and run PostgreSQL API integration tests after resolving the PostgreSQL 15 pgvector compatibility issue",
     "Build and run the SwiftUI companion with full Xcode and execute XCTest",
-    "Implement and verify encrypted backup synchronization and restore against the private database repository",
-    "Add remaining install, service lifecycle, retention, and supported-agent integration flows",
-    "Create a safe migration path from the installed SQLite edition before replacing it"
+    "Implement and verify encrypted backup synchronization and restore for the PostgreSQL backend",
+    "Create the SQLite-to-PostgreSQL data migration path (record-count and relationship parity) before any cutover",
+    "Run codex mcp list from a user terminal session to confirm CLI-visible registration"
   ],
   "blocked_tasks": [
-    "Alembic migration and PostgreSQL API integration tests need pgvector files compatible with active PostgreSQL 15; current Homebrew files target PostgreSQL 17/18, and installing/building an extension changes files outside the workspace",
-    "Native SwiftUI build and XCTest require full Xcode; only Command Line Tools are selected",
-    "Claude Code CLI is not installed, so its MCP integration cannot be verified"
+    "Claude Code CLI is not installed, so its MCP integration cannot be runtime-verified (configure.sh provided)",
+    "Native SwiftUI build and XCTest require full Xcode (Xcode was removed from this machine; receipts remain)",
+    "New backup uploads are blocked: the configured backup repository bhaveshdeveloper2007/ai-model-database is PUBLIC. Encrypted snapshots remain confidential (AES-256-GCM), but no new uploads are permitted until the user restores private visibility. Visibility was not changed automatically."
   ],
   "verified_tests": [
-    "11 non-database pytest tests passed",
-    "10 existing SQLite engine and backup regression tests passed in isolated temporary directories",
-    "21 Python tests passed across the new backend and existing local runtime",
-    "Python compileall passed for backend, scripts, and MCP server",
-    "Shell syntax checks passed for all scripts",
-    "Swift source parsed successfully with swiftc",
-    "SQLAlchemy metadata compiled to 28 PostgreSQL DDL statements for 17 tables",
-    "FastAPI app import registered 32 routes",
-    "git diff --check passed"
+    "32/32 SQLite engine tests (legacy regressions + 22 new: redaction, idempotency, versioning, supersede, isolation, session identity, solutions, activity, additive migration, dashboard endpoints, MCP round-trip, legacy tool names)",
+    "19/19 backend tests including first successful PostgreSQL API integration run",
+    "Alembic migration applied to isolated memoryos_backend_test database (18 tables + pgvector 0.8.7)",
+    "Restart persistence: memory content and metadata identical across process restart",
+    "Encrypted snapshot integrity: latest snapshot decrypts with Keychain key, tar valid, inner DB integrity ok (local verification only, no upload)",
+    "Live install: engine 0.3.0, 46 MCP tools, all required tool surface present, DB integrity ok with 8 projects and 7317 events preserved",
+    "Dashboard: /health, /progress, HTML served on loopback"
   ],
   "outstanding_defects": [
-    "Initial PostgreSQL migration is generated but not applied on the current host; the development database contains no application tables",
-    "API integration tests and database restore tests have not run",
-    "Encrypted synchronization to the private database repository is not implemented yet",
-    "Installed SQLite edition has no migration path to PostgreSQL"
+    "Backup repository visibility is PUBLIC; existing snapshots are encrypted but the user must restore private visibility before uploads resume",
+    "SQLite-to-PostgreSQL migration path not implemented; SQLite remains the live authoritative system"
   ],
   "decisions": [
     "Build alongside the installed SQLite edition until migration and restore parity",

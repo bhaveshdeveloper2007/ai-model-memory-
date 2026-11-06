@@ -346,7 +346,8 @@ def create_app() -> FastAPI:
                 selected_because="Project-scoped full-text match ranked with importance, verification, and recency.",
             )
         provider = configured_provider()
-        if provider:
+        vector_ready = db.execute(text("SELECT extname FROM pg_extension WHERE extname='vector'")).scalar_one_or_none() == 'vector'
+        if provider and vector_ready:
             try:
                 vector = provider.embed(q)
                 distance = MemoryEmbedding.embedding.cosine_distance(vector)
@@ -596,8 +597,10 @@ def create_app() -> FastAPI:
             set_={"agent_id": agent_id, "project_id": body.project_id, "expires_at": expires, "heartbeat_at": now, "session_id": None},
             where=(AgentLease.expires_at <= now) | (AgentLease.agent_id == agent_id),
         )
-        result = db.execute(statement)
-        if result.rowcount != 1:
+        # psycopg3 reports rowcount=-1 for INSERT..ON CONFLICT DO UPDATE, so
+        # the conflict outcome is decided with RETURNING, not rowcount.
+        acquired = db.execute(statement.returning(AgentLease.resource_key)).first()
+        if acquired is None:
             db.rollback()
             raise HTTPException(status_code=409, detail="Resource is leased by another agent.")
         db.add(AuditLog(project_id=body.project_id, agent_id=agent_id, action="lease.acquired", outcome="allowed", details={"resource_key": body.resource_key, "expires_at": expires.isoformat()}))
@@ -617,8 +620,10 @@ def create_app() -> FastAPI:
         filters = [AgentLease.resource_key == resource_key, AgentLease.project_id == body.project_id, AgentLease.expires_at > now]
         if actor.agent_id:
             filters.append(AgentLease.agent_id == actor.agent_id)
-        result = db.execute(update(AgentLease).where(*filters).values(heartbeat_at=now, expires_at=expires))
-        if result.rowcount != 1:
+        heartbeated = db.execute(
+            update(AgentLease).where(*filters).values(heartbeat_at=now, expires_at=expires).returning(AgentLease.resource_key)
+        ).first()
+        if heartbeated is None:
             db.rollback()
             raise HTTPException(status_code=404, detail="An active lease owned by this agent was not found.")
         db.commit()
@@ -634,8 +639,8 @@ def create_app() -> FastAPI:
         filters = [AgentLease.resource_key == f"{body.project_id}:{body.resource_key}", AgentLease.project_id == body.project_id]
         if actor.agent_id:
             filters.append(AgentLease.agent_id == actor.agent_id)
-        result = db.execute(delete(AgentLease).where(*filters))
-        if result.rowcount != 1:
+        released = db.execute(delete(AgentLease).where(*filters).returning(AgentLease.resource_key)).first()
+        if released is None:
             db.rollback()
             raise HTTPException(status_code=404, detail="Lease not found or not owned by this agent.")
         db.add(AuditLog(project_id=body.project_id, agent_id=actor.agent_id, action="lease.released", outcome="allowed", details={"resource_key": body.resource_key}))

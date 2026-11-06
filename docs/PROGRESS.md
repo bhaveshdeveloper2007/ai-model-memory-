@@ -25,3 +25,13 @@ Machine-readable phase status is maintained in `progress.json` at the repository
 - [ ] Full SwiftUI build and XCTest (requires full Xcode).
 
 Update this checkpoint after each implementation milestone and before ending interrupted work.
+
+## 2026-11-07 — foundation verified and shared engine extended
+
+- Shared SQLite engine extended to the full tool surface (memory CRUD with versioning and verification statuses, idempotent capture, secret redaction, sessions, checkpoint restore, agent activity, project registration/switching/context, solutions) and installed live: engine 0.3.0, 46 MCP tools, installed database migrated additively with integrity ok and all history preserved.
+- Installer hook-deduplication bug fixed; 35 duplicate hook groups removed from live Codex configuration (backups kept).
+- PostgreSQL backend unblocked: pgvector 0.8.7 loads on PostgreSQL 15 (previous 0.8.6 blocker obsolete); migration made vector-optional with a corrected availability probe; Alembic schema applied to an isolated `memoryos_backend_test` database; **first API integration run caught and fixed a real lease bug** (psycopg3 rowcount=-1 on INSERT..ON CONFLICT DO UPDATE → deterministic RETURNING checks).
+- Combined verification: 32/32 engine tests, 19/19 backend tests, restart persistence, encrypted snapshot integrity (local only), live dashboard health.
+- Blocker recorded: backup repository is PUBLIC → no uploads (see KNOWN_ISSUES.md). Claude Code CLI absent → configure.sh provided, runtime verification pending. Full Xcode absent → SwiftUI companion and XCTest pending.
+
+Machine-readable status: `progress.json`.

@@ -119,11 +119,11 @@ def test_agent_leases_are_advisory_expiring_and_agent_owned(owner_headers, clean
         body = {"project_id": project_id, "resource_key": "src/main.py", "ttl_seconds": 120}
         assert client.post("/v1/leases", headers=owner_headers, json=body).status_code == 200
         assert client.post("/v1/leases", headers=agent_headers, json=body).status_code == 409
-        assert client.delete("/v1/leases", headers=agent_headers, json=body).status_code == 404
-        assert client.delete("/v1/leases", headers=owner_headers, json=body).status_code == 204
+        assert client.request("DELETE", "/v1/leases", headers=agent_headers, json=body).status_code == 404
+        assert client.request("DELETE", "/v1/leases", headers=owner_headers, json=body).status_code == 204
         assert client.post("/v1/leases", headers=agent_headers, json=body).status_code == 200
         assert client.post("/v1/leases/heartbeat", headers=agent_headers, json=body).status_code == 200
-        assert client.delete("/v1/leases", headers=agent_headers, json=body).status_code == 204
+        assert client.request("DELETE", "/v1/leases", headers=agent_headers, json=body).status_code == 204
 
 
 def test_memory_outbox_projects_private_markdown(owner_headers, tmp_path: Path, clean_test_database):

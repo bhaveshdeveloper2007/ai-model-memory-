@@ -37,7 +37,7 @@ h=hook_data.setdefault('hooks',{})
 script=root/'integrations/codex/hook.py'
 for event in ('SessionStart','UserPromptSubmit','PostToolUse','SessionEnd','Stop'):
     arr=h.setdefault(event,[])
-    if not any(any(x.get('command','').endswith('hook.py '+event) for x in group.get('hooks',[])) for group in arr if isinstance(group,dict)):
+    if not any(any('hook.py' in x.get('command','') and event in x.get('command','') for x in group.get('hooks',[])) for group in arr if isinstance(group,dict)):
         changes.append('hooks'); break
 stamp=datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 if 'config' in changes and config.exists():
@@ -51,7 +51,7 @@ if 'config' in changes:
 hook_data.setdefault('hooks',{})
 for event in ('SessionStart','UserPromptSubmit','PostToolUse','SessionEnd','Stop'):
     arr=hook_data['hooks'].setdefault(event,[])
-    if not any(any(x.get('command','').endswith('hook.py '+event) for x in group.get('hooks',[])) for group in arr if isinstance(group,dict)):
+    if not any(any('hook.py' in x.get('command','') and event in x.get('command','') for x in group.get('hooks',[])) for group in arr if isinstance(group,dict)):
         arr.append({'hooks':[{'type':'command','command':f'"{script}" {event}'}]})
 hooks.write_text(json.dumps(hook_data,indent=2)+'\n'); os.chmod(hooks,0o600)
 # Preserve existing global instructions and add Memory OS guidance only once.
