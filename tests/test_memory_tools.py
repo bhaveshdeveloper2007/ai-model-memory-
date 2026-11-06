@@ -194,6 +194,37 @@ class EngineTestCase(unittest.TestCase):
         finally:
             m.DB = original_db
 
+    def test_fts_index_rebuild_preserves_legacy_memories(self):
+        """Databases created before the title column must rebuild their FTS
+        index in place: search keeps working and no memory rows are lost."""
+        legacy_dir = self.root / 'legacy-fts'
+        legacy_dir.mkdir()
+        legacy_db = legacy_dir / 'old.sqlite3'
+        old = sqlite3.connect(legacy_db)
+        old.executescript('''
+        CREATE TABLE projects(id TEXT PRIMARY KEY, identity TEXT UNIQUE NOT NULL, name TEXT NOT NULL, root_path TEXT NOT NULL, remote_url TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+        CREATE TABLE memories(id TEXT PRIMARY KEY, project_id TEXT NOT NULL, category TEXT NOT NULL, content TEXT NOT NULL, importance REAL NOT NULL DEFAULT 0.5, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+        CREATE VIRTUAL TABLE memories_fts USING fts5(memory_id UNINDEXED, project_id UNINDEXED, content, category);
+        INSERT INTO projects VALUES ('p1', 'ident-fts', 'Legacy', '/legacy', NULL, '2020-01-01', '2020-01-01');
+        INSERT INTO memories VALUES ('m1', 'p1', 'project_context', 'legacy searchable content zz9q', 0.5, '2020-01-01', '2020-01-01');
+        INSERT INTO memories_fts VALUES ('m1', 'p1', 'legacy searchable content zz9q', 'project_context');
+        ''')
+        old.commit()
+        old.close()
+        original_db = m.DB
+        m.DB = legacy_db
+        try:
+            m.call('remember', {'cwd': str(legacy_dir), 'category': 'project_context', 'content': 'new memory after rebuild'})
+            with m.connect() as db:
+                columns = [row[1] for row in db.execute('PRAGMA table_info(memories_fts)')]
+                count = db.execute('SELECT count(*) FROM memories').fetchone()[0]
+            self.assertIn('title', columns)
+            self.assertEqual(count, 2)
+            found = m.call('memory_search', {'query': 'zz9q'})
+            self.assertTrue(any('legacy searchable content' in (row.get('content') or '') for row in found['results']))
+        finally:
+            m.DB = original_db
+
     def test_dashboard_endpoints_are_loopback_json(self):
         import threading
         from http.server import ThreadingHTTPServer

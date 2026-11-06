@@ -14,18 +14,23 @@
     "Fix a real lease-coordination bug found by first-ever API integration run: psycopg3 rowcount=-1 for INSERT..ON CONFLICT DO UPDATE replaced with deterministic RETURNING checks in acquire/heartbeat/release",
     "Fix DELETE-with-body usage in the lease API test (httpx does not support bodies on delete())",
     "Add integrations/claude-code/configure.sh and universal skill skill/memory-os/SKILL.md",
-    "Run combined verification: 32/32 SQLite engine tests, 19/19 backend tests, restart persistence, encrypted snapshot integrity, live MCP round-trip (46 tools), live dashboard health"
+    "Run combined verification: 32/32 SQLite engine tests, 19/19 backend tests, restart persistence, encrypted snapshot integrity, live MCP round-trip (46 tools), live dashboard health",
+    "Fix Codex CLI discovery: the CLI was genuinely absent (npm/bun globals empty; earlier npx output was a one-off fetch); installed @openai/codex 0.167.0 via npm in the user-writable Homebrew prefix; codex mcp list now shows memory_os enabled with absolute paths; all pre-existing MCP servers preserved",
+    "Catch and fix a live-database migration gap found by real MCP usage: installed databases carried the pre-0.3.0 four-column memories_fts index, which broke remember; added an FTS rebuild migration plus regression test (33/33)",
+    "Verify the shared memory flow on the live engine through three independent MCP server processes: agent A wrote, independent agent B read the same record, B updated it to v2, and a post-restart process retrieved the verified update; temporary test data cleaned",
+    "Verify codex mcp get registration detail and run a live codex exec agent session (hooks fired; blocked only by the OpenAI account usage limit that resets 2026-12-06)"
   ],
   "pending_tasks": [
     "Build and run the SwiftUI companion with full Xcode and execute XCTest",
     "Implement and verify encrypted backup synchronization and restore for the PostgreSQL backend",
     "Create the SQLite-to-PostgreSQL data migration path (record-count and relationship parity) before any cutover",
-    "Run codex mcp list from a user terminal session to confirm CLI-visible registration"
+    "Run codex mcp list from a user terminal session to confirm CLI-visible registration",
+    "Run a real Codex end-to-end tool-call session after the usage limit resets (2026-12-06) or on a plan with capacity"
   ],
   "blocked_tasks": [
-    "Claude Code CLI is not installed, so its MCP integration cannot be runtime-verified (configure.sh provided)",
-    "Native SwiftUI build and XCTest require full Xcode (Xcode was removed from this machine; receipts remain)",
-    "New backup uploads are blocked: the configured backup repository bhaveshdeveloper2007/ai-model-database is PUBLIC. Encrypted snapshots remain confidential (AES-256-GCM), but no new uploads are permitted until the user restores private visibility. Visibility was not changed automatically."
+    "Claude Code CLI is not installed; user authorization was requested for the npm install but not granted this session, so its MCP registration and the true Codex-to-Claude cross-agent test remain pending (exact command: npm install -g @anthropic-ai/claude-code, then bash integrations/claude-code/configure.sh)",
+    "Backup uploads remain blocked: repository bhaveshdeveloper2007/ai-model-database is still PUBLIC (re-checked 2026-11-07); no uploads made and visibility not changed automatically",
+    "New backups cannot be tested end-to-end until the repository is private"
   ],
   "verified_tests": [
     "32/32 SQLite engine tests (legacy regressions + 22 new: redaction, idempotency, versioning, supersede, isolation, session identity, solutions, activity, additive migration, dashboard endpoints, MCP round-trip, legacy tool names)",

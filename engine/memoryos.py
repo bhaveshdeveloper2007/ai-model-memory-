@@ -109,6 +109,18 @@ def _migrate(c):
         for name,decl in columns.items():
             if name not in existing:
                 c.execute(f'ALTER TABLE {table} ADD COLUMN {name} {decl}')
+    # The FTS index gained a title column in 0.3.0. FTS5 tables cannot be
+    # altered in place, so an index built by an older release is rebuilt from
+    # the authoritative memories rows; no memory content is touched.
+    fts_columns=[row[1] for row in c.execute('PRAGMA table_info(memories_fts)')]
+    if fts_columns and 'title' not in fts_columns:
+        c.executescript('''
+        CREATE VIRTUAL TABLE memories_fts_rebuild USING fts5(memory_id UNINDEXED, project_id UNINDEXED, content, category, title);
+        INSERT INTO memories_fts_rebuild(memory_id, project_id, content, category, title)
+            SELECT m.id, m.project_id, m.content, m.category, COALESCE(m.title, '') FROM memories m;
+        DROP TABLE memories_fts;
+        ALTER TABLE memories_fts_rebuild RENAME TO memories_fts;
+        ''')
     c.commit()
 def git(path,*args):
     try:return subprocess.check_output(['git','-C',str(path),*args],stderr=subprocess.DEVNULL,text=True,timeout=2).strip()

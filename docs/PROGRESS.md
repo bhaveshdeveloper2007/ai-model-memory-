@@ -35,3 +35,10 @@ Update this checkpoint after each implementation milestone and before ending int
 - Blocker recorded: backup repository is PUBLIC → no uploads (see KNOWN_ISSUES.md). Claude Code CLI absent → configure.sh provided, runtime verification pending. Full Xcode absent → SwiftUI companion and XCTest pending.
 
 Machine-readable status: `progress.json`.
+
+## 2026-11-07 (2) — Codex CLI discovery fixed, live FTS migration gap caught
+
+- Codex CLI was genuinely absent (`command not found`); installed `@openai/codex` 0.167.0 via npm in the user-writable prefix. `codex mcp list` now shows `memory_os` **enabled** with absolute paths; unrelated MCP servers untouched. `codex mcp get` verified transport/command/args. A live `codex exec` session launched (hooks fired) but stopped at the OpenAI usage limit (resets 2026-12-06) — an account blocker, not configuration.
+- **Live usage caught a migration gap**: installed databases carry the pre-0.3.0 four-column `memories_fts` index, so `remember` failed against the real database even though fresh-database tests passed. Fixed with an in-place FTS5 rebuild migration + regression test; suite now 33/33.
+- Shared-memory flow verified on the live engine across three independent MCP server processes (write → independent read → versioned update → post-restart retrieve); temporary test data archived/removed from the live database afterwards; final integrity ok with the user's 8 projects and full history intact.
+- Claude Code remains uninstalled pending user authorization; backup repository remains PUBLIC → no uploads.
