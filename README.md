@@ -52,3 +52,25 @@ Then visit http://127.0.0.1:8765. The dashboard is local-only and runs while tha
 - The installer preserves existing memory data during upgrades. It does not install a privileged service or request macOS privacy permissions.
 
 Read `docs/SECURITY.md` and `docs/INSTALLATION.md` for details. Claude Code and Cursor setup are not yet included in the installer.
+
+## Repository layout and the PostgreSQL build
+
+There are two separate GitHub repositories in this setup:
+
+- `ai-model-memory-` is source code and installation scripts.
+- `ai-model-database` is the user's private repository for optional encrypted backups of the installed SQLite edition.
+
+The PostgreSQL/FastAPI implementation is being developed under `backend/`, with the SwiftUI menu-bar application under `apps/macos/`. It runs alongside the currently installed SQLite service until import and restore checks show that migration is safe. Development code and tests remain in the source repository; local API tokens, the PostgreSQL database, and the Markdown vault are excluded from Git.
+
+The new backend uses an isolated database named `memoryos_dev`; `scripts/setup-dev.sh` creates it only if the name is unused and installs Python packages into `backend/.venv`. On this Mac, the active PostgreSQL service is 15.19, while the installed Homebrew pgvector files are for PostgreSQL 17/18. The migration therefore stops before creating the schema. A PostgreSQL 15-compatible pgvector extension must be made available before the backend can start. The existing PostgreSQL databases and SQLite memory installation are left untouched.
+
+Once that extension is available, the development commands are:
+
+```bash
+./scripts/setup-dev.sh
+./scripts/run-api.sh
+./scripts/run-vault-worker.sh
+./scripts/serve-dashboard.sh
+```
+
+The API binds to `127.0.0.1:8766`; the optional dashboard serves from `127.0.0.1:8767`. See `docs/IMPLEMENTATION_PLAN.md` and `docs/PROGRESS.md` for what is implemented and what still needs verification.

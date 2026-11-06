@@ -12,3 +12,16 @@ __pycache__/
 *.jsonl
 .env
 .env.*
+backend/.venv/
+*.egg-info/
+backend/.env
+backend/.agent-token-*
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/.mypy_cache/
+backend/**/__pycache__/
+.memoryos-dev/
+data/
+vault/
+apps/macos/.build/
+apps/macos/.swiftpm/

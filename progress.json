@@ -1,0 +1,47 @@
+{
+  "project": "MEMORY_OS",
+  "current_phase": "foundation_and_vertical_slice",
+  "completed_tasks": [
+    "Inspect local macOS, Apple Silicon, Swift, Homebrew, Python, PostgreSQL, pgvector, listeners, RAM, disk, and existing Memory OS installation",
+    "Record preservation boundary for installed SQLite data and encrypted backups",
+    "Choose isolated PostgreSQL backend and transactional Markdown projection design",
+    "Implement FastAPI/SQLAlchemy backend models, versioned Alembic schema, localhost token authentication, and project-scoped agent grants",
+    "Implement project/session APIs, redacted idempotent events, tasks and dependency checks, decisions, errors, checkpoints, advisory leases, memory CRUD, and full-text search",
+    "Implement transactional Markdown outbox projection and local-only Ollama embedding adapter",
+    "Implement stdio MCP adapter, browser dashboard source, and SwiftUI menu-bar companion source",
+    "Run Python compilation, SQLAlchemy PostgreSQL DDL compilation, shell syntax checks, Swift syntax parsing, git diff whitespace checks, and 11 passing non-database unit tests"
+  ],
+  "pending_tasks": [
+    "Apply the Alembic schema and run PostgreSQL API integration tests after resolving the PostgreSQL 15 pgvector compatibility issue",
+    "Build and run the SwiftUI companion with full Xcode and execute XCTest",
+    "Implement and verify encrypted backup synchronization and restore against the private database repository",
+    "Add remaining install, service lifecycle, retention, and supported-agent integration flows",
+    "Create a safe migration path from the installed SQLite edition before replacing it"
+  ],
+  "blocked_tasks": [
+    "Alembic migration and PostgreSQL API integration tests need pgvector files compatible with active PostgreSQL 15; current Homebrew files target PostgreSQL 17/18, and installing/building an extension changes files outside the workspace",
+    "Native SwiftUI build and XCTest require full Xcode; only Command Line Tools are selected",
+    "Claude Code CLI is not installed, so its MCP integration cannot be verified"
+  ],
+  "verified_tests": [
+    "11 non-database pytest tests passed",
+    "Python compileall passed for backend, scripts, and MCP server",
+    "Shell syntax checks passed for all scripts",
+    "Swift source parsed successfully with swiftc",
+    "SQLAlchemy metadata compiled to 28 PostgreSQL DDL statements for 17 tables",
+    "FastAPI app import registered 32 routes",
+    "git diff --check passed"
+  ],
+  "outstanding_defects": [
+    "Initial PostgreSQL migration is generated but not applied on the current host; the development database contains no application tables",
+    "API integration tests and database restore tests have not run",
+    "Encrypted synchronization to the private database repository is not implemented yet",
+    "Installed SQLite edition has no migration path to PostgreSQL"
+  ],
+  "decisions": [
+    "Build alongside the installed SQLite edition until migration and restore parity",
+    "PostgreSQL is authoritative and Markdown is maintained through a durable outbox",
+    "Do not enable hosted embeddings or cloud sync by default"
+  ],
+  "next_action": "Resolve the PostgreSQL 15 pgvector compatibility issue, then apply migrations and run API integration tests; do not replace the installed SQLite edition before migration and restore parity"
+}

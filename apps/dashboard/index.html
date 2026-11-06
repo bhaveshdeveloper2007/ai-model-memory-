@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Memory OS</title>
+  <style>
+    :root { color-scheme: dark; font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:#11151d; color:#edf1f8; }
+    body { max-width:1120px; margin:36px auto; padding:0 22px; }
+    h1 { margin:0; color:#9bbcff; font-size:28px; } h2 { margin:0 0 12px; font-size:17px; }
+    .bar, .grid { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .bar { margin:20px 0; } .grid { align-items:stretch; }
+    section { background:#1a2230; border:1px solid #2a3547; border-radius:14px; padding:18px; margin:14px 0; }
+    .grid section { flex:1 1 360px; min-width:0; }
+    input, select, button { color:inherit; background:#111822; border:1px solid #39465a; border-radius:8px; padding:10px 12px; }
+    input { min-width:190px; flex:1; } button { cursor:pointer; background:#315996; border-color:#4577bf; }
+    button:hover { background:#3d6caf; } pre { white-space:pre-wrap; overflow-wrap:anywhere; color:#d7e2f3; max-height:380px; overflow:auto; }
+    .muted { color:#aeb9c8; } .error { color:#ff9c9c; } .ok { color:#93ddb4; }
+    .item { border-top:1px solid #2c3747; padding:10px 0; } .item:first-child { border-top:0; }
+    label { display:flex; gap:8px; align-items:center; }
+  </style>
+</head>
+<body>
+  <header><h1>Memory OS</h1><p class="muted">Local project memory and observed activity</p></header>
+  <section>
+    <div class="bar">
+      <label>Backend <input id="api" value="http://127.0.0.1:8766" aria-label="Backend URL"></label>
+      <label>Local access token <input id="token" type="password" autocomplete="off" aria-label="Local access token"></label>
+      <button id="connect">Connect</button>
+      <span id="status" class="muted" role="status">Not connected</span>
+    </div>
+    <div class="bar"><label>Project <select id="project" aria-label="Project"><option value="">Select a project</option></select></label></div>
+  </section>
+  <div class="grid">
+    <section><h2>Tasks</h2><div id="tasks" class="muted">Connect and select a project.</div></section>
+    <section><h2>Recent events</h2><div id="events" class="muted">Connect and select a project.</div></section>
+  </div>
+  <section>
+    <h2>Search project memory</h2>
+    <div class="bar"><input id="query" placeholder="Search saved memory" aria-label="Memory search"><button id="search">Search</button></div>
+    <div id="results" class="muted">Search uses project-scoped full-text retrieval and optional local embeddings.</div>
+  </section>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let token = "";
+    async function request(path, options = {}) {
+      const base = $("api").value.replace(/\/$/, "");
+      const host = new URL(base).hostname;
+      if (!["localhost", "127.0.0.1", "[::1]", "::1"].includes(host)) throw new Error("Memory OS only connects to a localhost backend.");
+      const response = await fetch(base + path, { ...options, headers: {
+        "Authorization": "Bearer " + token,
+        ...(options.body ? {"Content-Type":"application/json"} : {}),
+        ...(options.headers || {})
+      }});
+      if (!response.ok) throw new Error((await response.text()).slice(0, 400));
+      return response.json();
+    }
+    function renderItems(target, items, render) {
+      target.replaceChildren();
+      if (!items.length) { target.textContent = "No recorded items."; target.className = "muted"; return; }
+      for (const item of items) {
+        const row = document.createElement("div"); row.className = "item";
+        const title = document.createElement("strong"); title.textContent = render(item).title;
+        const detail = document.createElement("p"); detail.className = "muted"; detail.textContent = render(item).detail;
+        row.append(title, detail); target.append(row);
+      }
+    }
+    async function loadProject() {
+      const project = $("project").value; if (!project) return;
+      try {
+        const [tasks, events] = await Promise.all([
+          request(`/v1/projects/${encodeURIComponent(project)}/tasks`),
+          request(`/v1/projects/${encodeURIComponent(project)}/events?limit=30`)
+        ]);
+        renderItems($("tasks"), tasks, x => ({title:`${x.title} · ${x.status}`, detail:x.details || "No details recorded"}));
+        renderItems($("events"), events, x => ({title:x.event_type, detail:`${new Date(x.occurred_at).toLocaleString()} · ${x.source}`}));
+      } catch (e) { $("status").textContent = "Request failed"; $("status").className = "error"; }
+    }
+    $("connect").onclick = async () => {
+      token = $("token").value;
+      try {
+        const [health, projects] = await Promise.all([request("/health"), request("/v1/projects")]);
+        $("project").replaceChildren(new Option("Select a project", ""));
+        for (const project of projects) $("project").add(new Option(project.name, project.id));
+        $("status").textContent = health.status === "ok" ? "Backend and database connected" : "Backend status unknown";
+        $("status").className = health.status === "ok" ? "ok" : "error";
+        await loadProject();
+      } catch (e) { $("status").textContent = e.message; $("status").className = "error"; }
+    };
+    $("project").onchange = loadProject;
+    $("search").onclick = async () => {
+      const project = $("project").value, q = $("query").value;
+      if (!project || !q) return;
+      try {
+        const results = await request(`/v1/projects/${encodeURIComponent(project)}/memories/search?` + new URLSearchParams({q}));
+        renderItems($("results"), results, x => ({title:`${x.memory.category}${x.memory.verified ? " · verified" : " · unverified"}`, detail:`${x.memory.content}\n\nSource: ${x.memory.source} · score ${x.score.toFixed(3)}\n${x.selected_because}`}));
+      } catch (e) { $("results").textContent = e.message; $("results").className = "error"; }
+    };
+  </script>
+</body>
+</html>
