@@ -292,7 +292,7 @@ class McpProtocolTests(unittest.TestCase):
         try:
             init = self._rpc(proc, {'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {'protocolVersion': '2024-11-05'}})
             self.assertEqual(init['result']['serverInfo']['name'], 'memory-os')
-            self.assertEqual(init['result']['serverInfo']['version'], '0.3.0')
+            self.assertEqual(init['result']['serverInfo']['version'], '0.4.0')
             tools = self._rpc(proc, {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list'})
             names = {tool['name'] for tool in tools['result']['tools']}
             required_tools = {
